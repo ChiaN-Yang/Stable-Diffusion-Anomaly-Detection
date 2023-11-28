@@ -7,6 +7,7 @@ Pandas
 requests
 setuptools
 scikit-image
+transformers
 torch
 torchvision
 torchmetrics

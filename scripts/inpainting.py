@@ -4,11 +4,11 @@ import numpy as np
 import torch
 from PIL import Image
 from segment_anything import build_sam, SamAutomaticMaskGenerator
-from diffusers import StableDiffusionInpaintPipelineLegacy, DDIMScheduler, AutoencoderKL
-from ip_adapter.ip_adapter import IPAdapter
+from transformers import CLIPVisionModelWithProjection, CLIPImageProcessor
+from diffusers import StableDiffusionInpaintPipeline
 
 
-STRENGTH = 0.5
+STRENGTH = 0.1
 
 def main(save_path):
     folder_types = ['candle', 'capsules', 'cashew', 'chewinggum', 'fryum',
@@ -41,8 +41,7 @@ def reconstruct(save_path: str, local_image_path: str, ref_image_path:str, anoma
     image_source = Image.open(local_image_path).convert("RGB")
     image_source = np.asarray(image_source)
     # Load reference image
-    ref_image = Image.open(ref_image_path)
-    ref_image.resize(IMAGE_SIZE)
+    ref_image = Image.open(ref_image_path).convert("RGB")
 
     # Run the segmentation model
     masks = sam_predictor.generate(image_source)
@@ -56,12 +55,24 @@ def reconstruct(save_path: str, local_image_path: str, ref_image_path:str, anoma
     save_path = os.path.join(save_path, anomaly_type, category)
     image_source_for_inpaint = image_source_pil.resize(IMAGE_SIZE)
     image_mask_for_inpaint = image_mask_pil.resize(IMAGE_SIZE)
+    ref_image = ref_image.resize(IMAGE_SIZE)
     image_source_for_inpaint.save(f"{save_path}/source_{os.path.basename(local_image_path)}")
     image_mask_for_inpaint.save(f"{save_path}/mask_{os.path.basename(local_image_path)}")
 
-    image_inpainting = ip_model.generate(pil_image=ref_image, num_samples=1, num_inference_steps=50,
-        seed=42, image=image_source_for_inpaint, mask_image=image_mask_for_inpaint, strength=STRENGTH)[0]
-    image_inpainting.save(f"{save_path}/inpaint_{os.path.basename(local_image_path)}")
+    ip_model.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter_sd15.bin")
+    generator = torch.Generator(device="cpu").manual_seed(33)
+    image_inpainting = ip_model(
+        prompt='best quality, high quality', 
+        image = image_source_for_inpaint,
+        mask_image = image_mask_for_inpaint,
+        ip_adapter_image=ref_image,
+        negative_prompt="monochrome, lowres, bad anatomy, worst quality, low quality", 
+        num_images_per_prompt=1, 
+        num_inference_steps=50,
+        generator=generator,
+        strength=STRENGTH,
+    ).images
+    image_inpainting[0].save(f"{save_path}/inpaint_{os.path.basename(local_image_path)}")
 
 
 def load_models():
@@ -72,39 +83,20 @@ def load_models():
             sam, pred_iou_thresh=0.98, stability_score_thresh=0.92, min_mask_region_area=10000)
 
     # Load stable diffusion inpainting models
-    base_model_path = "SG161222/Realistic_Vision_V4.0_noVAE"
-    vae_model_path = "stabilityai/sd-vae-ft-mse"
-
-    noise_scheduler = DDIMScheduler(
-        num_train_timesteps=1000,
-        beta_start=0.00085,
-        beta_end=0.012,
-        beta_schedule="scaled_linear",
-        clip_sample=False,
-        set_alpha_to_one=False,
-        steps_offset=1,
-    )
-    vae = AutoencoderKL.from_pretrained(vae_model_path).to(dtype=torch.float16)
+    image_encoder = CLIPVisionModelWithProjection.from_pretrained(
+        "h94/IP-Adapter", 
+        subfolder="models/image_encoder",
+        torch_dtype=torch.float16,
+    ).to("cuda")
 
     # load SD pipeline
-    pipe = StableDiffusionInpaintPipelineLegacy.from_pretrained(
-        base_model_path,
-        torch_dtype=torch.float16,
-        scheduler=noise_scheduler,
-        vae=vae,
-        feature_extractor=None,
-        safety_checker=None
-    )
-    pipe = pipe.to("cuda")
-
-    # load ip-adapter
-    image_encoder_path = "models/image_encoder/"
-    ip_ckpt = "models/ip-adapter_sd15.bin"
-    device = "cuda"
-    ip_model = IPAdapter(pipe, image_encoder_path, ip_ckpt, device)
-    return sam_predictor, ip_model
+    pipeline = StableDiffusionInpaintPipeline.from_pretrained(
+        "runwayml/stable-diffusion-v1-5",
+        image_encoder = image_encoder, torch_dtype=torch.float16, safety_checker=None)
+    pipeline = pipeline.to("cuda")
+    return sam_predictor, pipeline
 
 
 if __name__ == "__main__":
     sam_predictor, ip_model = load_models()
-    main(f"/mnt/d/reconstruct/strength_{STRENGTH}")
+    main(f"/mnt/d/reconstruct/inpaint_strength_{STRENGTH}")
