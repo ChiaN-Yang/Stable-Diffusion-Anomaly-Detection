@@ -60,8 +60,8 @@ def detection(folder_path, file_name, results_dir, object_type, folder):
 
 
 def run(image_dir, results_dir, object_type):
-    os.makedirs(f'{results_dir}/{object_type}/Anomaly', exist_ok=True)
-    os.makedirs(f'{results_dir}/{object_type}/Normal', exist_ok=True)
+    os.makedirs(f'{results_dir}/{object_type}/Anomaly')
+    os.makedirs(f'{results_dir}/{object_type}/Normal')
 
     csv_path = f'{results_dir}/{object_type}/output.csv'
     with open(csv_path, 'w', newline='') as csvfile:
@@ -86,7 +86,7 @@ def run(image_dir, results_dir, object_type):
 
 
 def main(image_dir, results_dir):
-    os.makedirs(results_dir, exist_ok=True)
+    os.makedirs(results_dir)
     object_types = ['candle', 'capsules', 'cashew', 'chewinggum', 'fryum',
                     'macaroni1', 'macaroni2', 'pcb1', 'pcb2', 'pcb3', 'pcb4', 'pipe_fryum']
     for object_type in object_types:
