@@ -1,0 +1,23 @@
+dataset:
+  path: /mnt/d/dataset/MVTec/
+  image_size: 512
+  normal_folder: good
+  normal_folder_path: test
+  mask_enable: False
+
+categorys:
+  - bottle
+  - cable
+  - capsule
+  - carpet
+  - grid
+  - hazelnut
+  - leather
+  - metal_nut
+  - pill
+  - screw
+  - tile
+  - toothbrush
+  - transistor
+  - wood
+  - zipper

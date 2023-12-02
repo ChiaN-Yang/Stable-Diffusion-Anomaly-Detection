@@ -2,6 +2,7 @@ import os
 import numpy as np
 import torch
 import pandas as pd
+import yaml
 from torchmetrics import PrecisionRecallCurve, AUROC
 
 
@@ -52,8 +53,7 @@ def run(folder_path, folder_type, data_type):
 
 def get_score_list(folder_path, data_type='thresh_score'):
     thresh_list = []
-    folder_types = ['candle', 'capsules', 'cashew', 'chewinggum', 'fryum',
-                    'macaroni1', 'macaroni2', 'pcb1', 'pcb2', 'pcb3', 'pcb4', 'pipe_fryum']
+    folder_types = parser["categorys"]
     for folder_type in folder_types:
         thresh = run(folder_path, folder_type, data_type)
         thresh_list.append(thresh)
@@ -61,11 +61,16 @@ def get_score_list(folder_path, data_type='thresh_score'):
 
 
 if __name__ == "__main__":
-    STRENGTH = 0.5
+    with open("data/visa.yaml", "r") as stream:
+        parser = yaml.load(stream, Loader=yaml.CLoader)
+
+    STRENGTH = 0.1
     scores = []
     scores.append(
             get_score_list(f'/mnt/d/results/strength_{STRENGTH}_thresh_77', 'anomaly_score'))
     for thresh in [77, 100, 127, 147, 177, 200]:
         thresh_list = get_score_list(f'/mnt/d/results/strength_{STRENGTH}_thresh_{thresh}')
         scores.append(thresh_list)
-    pd.DataFrame(scores).to_csv(f'/mnt/d/results/strength_{STRENGTH}_scores.csv')
+    scores.append(
+            get_score_list(f'/mnt/d/results/strength_{STRENGTH}_thresh_77', 'ssim_score'))
+    pd.DataFrame(scores).to_csv(f'/mnt/d/results/strength_{STRENGTH}_scores.csv', header=parser["categorys"])
