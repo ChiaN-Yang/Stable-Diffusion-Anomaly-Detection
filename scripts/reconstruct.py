@@ -16,14 +16,13 @@ class Reconstructer:
 
     def __init__(self, save_path: str):
         self.save_path = Path(save_path)
-        self.parser = self._read_data_setting()
-        self.enable_mask = self.parser["dataset"]["mask_enable"]
+        self.parser, self.enable_mask = self._read_data_setting()
         self.sam_predictor, self.ip_model = self._load_models()
 
     def _read_data_setting(self):
         with open("data/visa.yaml", "r") as stream:
             parser = yaml.load(stream, Loader=yaml.CLoader)
-        return parser
+        return parser, parser["dataset"]["mask_enable"]
 
     def _load_models(self):
         if self.enable_mask:

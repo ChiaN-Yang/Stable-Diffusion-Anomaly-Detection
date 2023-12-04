@@ -4,6 +4,51 @@ import torch
 import pandas as pd
 import yaml
 from torchmetrics import PrecisionRecallCurve, AUROC
+from typing import List
+
+
+def main(strength: float):
+    with open("data/visa.yaml", "r") as stream:
+        parser = yaml.load(stream, Loader=yaml.CLoader)
+        categorys = parser["categorys"]
+    
+    scores = []
+    one_folder_path = f'/mnt/d/results/strength_{strength}_thresh_77'
+    scores.append(get_score_list(one_folder_path, 'anomaly_score', categorys))
+    for thresh in [77, 100, 127, 147, 177, 200]:
+        thresh_list = get_score_list(
+                f'/mnt/d/results/strength_{strength}_thresh_{thresh}', 'thresh_score', categorys)
+        scores.append(thresh_list)
+    scores.append(get_score_list(one_folder_path, 'ssim_score', categorys))
+    pd.DataFrame(scores).to_csv(f'/mnt/d/results/strength_{strength}_scores.csv', header=categorys)
+
+
+def get_score_list(folder_path: str, data_type: str, categorys: List[str]):
+    thresh_list = []
+    for folder_type in categorys:
+        thresh = get_score(os.path.join(folder_path, folder_type, 'output.csv'), data_type)
+        thresh_list.append(thresh)
+    return thresh_list
+
+
+def get_score(csv_path, data_type):
+    anomaly_areas, normal, abnormal, true_labels = read_csv(csv_path, data_type)
+
+    anomaly_max = np.max(anomaly_areas)
+    anomaly_min = np.min(anomaly_areas)
+    anomaly_areas = (anomaly_areas - anomaly_min) / (anomaly_max - anomaly_min)
+
+    auroc = AUROC(task="binary")
+    auroc_score = auroc(torch.tensor(anomaly_areas), torch.tensor(true_labels))
+
+    pr_curve = PrecisionRecallCurve(task="binary")
+    precision, recall, thresholds = pr_curve(torch.tensor(anomaly_areas).float(), torch.tensor(true_labels))
+
+    f1_score = (2 * precision * recall) / (precision + recall)
+    threshold = thresholds[torch.argmax(f1_score)]
+    threshold = threshold*(anomaly_max - anomaly_min) + anomaly_min
+    auroc_score = round(auroc_score.item(), 4)*100
+    return f"{auroc_score:.2f}"
 
 
 def read_csv(csv_path:str, data_type: str):
@@ -27,50 +72,5 @@ def read_csv(csv_path:str, data_type: str):
     return anomaly_areas, normal, abnormal, true_labels
 
 
-def get_score(csv_path, data_type):
-    anomaly_areas, normal, abnormal, true_labels = read_csv(csv_path, data_type)
-
-    anomaly_max = np.max(anomaly_areas)
-    anomaly_min = np.min(anomaly_areas)
-    anomaly_areas = (anomaly_areas - anomaly_min) / (anomaly_max - anomaly_min)
-
-    auroc = AUROC(task="binary")
-    auroc_score = auroc(torch.tensor(anomaly_areas), torch.tensor(true_labels))
-
-    pr_curve = PrecisionRecallCurve(task="binary")
-    precision, recall, thresholds = pr_curve(torch.tensor(anomaly_areas).float(), torch.tensor(true_labels))
-
-    f1_score = (2 * precision * recall) / (precision + recall)
-    threshold = thresholds[torch.argmax(f1_score)]
-    threshold = threshold*(anomaly_max - anomaly_min) + anomaly_min
-    auroc_score = round(auroc_score.item(), 4)*100
-    return f"{auroc_score:.2f}"
-
-
-def run(folder_path, folder_type, data_type):
-    return get_score(os.path.join(folder_path, folder_type, 'output.csv'), data_type)
-
-
-def get_score_list(folder_path, data_type='thresh_score'):
-    thresh_list = []
-    folder_types = parser["categorys"]
-    for folder_type in folder_types:
-        thresh = run(folder_path, folder_type, data_type)
-        thresh_list.append(thresh)
-    return thresh_list
-
-
-if __name__ == "__main__":
-    with open("data/visa.yaml", "r") as stream:
-        parser = yaml.load(stream, Loader=yaml.CLoader)
-
-    STRENGTH = 0.1
-    scores = []
-    scores.append(
-            get_score_list(f'/mnt/d/results/strength_{STRENGTH}_thresh_77', 'anomaly_score'))
-    for thresh in [77, 100, 127, 147, 177, 200]:
-        thresh_list = get_score_list(f'/mnt/d/results/strength_{STRENGTH}_thresh_{thresh}')
-        scores.append(thresh_list)
-    scores.append(
-            get_score_list(f'/mnt/d/results/strength_{STRENGTH}_thresh_77', 'ssim_score'))
-    pd.DataFrame(scores).to_csv(f'/mnt/d/results/strength_{STRENGTH}_scores.csv', header=parser["categorys"])
+if __name__ == '__main__':
+    main(strength=0.1)
