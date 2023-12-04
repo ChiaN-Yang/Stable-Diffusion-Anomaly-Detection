@@ -67,7 +67,7 @@ def run(image_dir, results_dir, object_type):
         writer = csv.writer(csvfile)
         writer.writerow(['name', 'ground_truth', 'anomaly_score', 'thresh_score', 'ssim_score', 'mask_area'])
 
-    for folder in os.listdir(os.path.join(parser["dataset"]["path"], object_type, parser["dataset"]["normal_folder_path"])):
+    for folder in os.listdir(os.path.join(parser["dataset"]["path"], object_type, parser["dataset"]["splite"])):
         os.makedirs(os.path.join(results_dir, object_type, folder))
         folder_path = os.path.join(image_dir, object_type, folder)
         for img_file in os.listdir(folder_path):
@@ -75,7 +75,7 @@ def run(image_dir, results_dir, object_type):
             file_name = img_file.split('_')[1]
             if file_type == 'source':
                 print(os.path.join(folder_path, img_file))
-                true_label= 0 if folder == parser["dataset"]["normal_folder"] else 1
+                true_label= 0 if folder == "good" else 1
                 anomaly_score, thresh_score, ssim_score, mask_area = detection(
                         folder_path, file_name, results_dir, object_type, folder)
                 with open(csv_path, 'a', newline='') as csvfile:

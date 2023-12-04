@@ -1,8 +1,7 @@
 dataset:
-  path: /mnt/d/dataset/VisA_20220922/
+  path: /mnt/d/dataset/VisA_20220922/visa_pytorch/
   image_size: 512
-  normal_folder: Normal
-  normal_folder_path: Data/Images
+  splite: test
   mask_enable: False
 
 categorys:

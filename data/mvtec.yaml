@@ -1,8 +1,7 @@
 dataset:
   path: /mnt/d/dataset/MVTec/
   image_size: 512
-  normal_folder: good
-  normal_folder_path: test
+  splite: test
   mask_enable: False
 
 categorys:
