@@ -6,6 +6,7 @@ import numpy as np
 import yaml
 from skimage.metrics import structural_similarity
 from pathlib import Path
+from output_csv import results_to_csv
 
 
 class AnomalyDetector:
@@ -113,3 +114,4 @@ class AnomalyDetector:
 if __name__ == "__main__":
     detector = AnomalyDetector(f"/mnt/d/reconstruct", f"/mnt/d/results/")
     detector.run_all_threshold()
+    results_to_csv(strength=detector.STRENGTH)

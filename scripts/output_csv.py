@@ -7,7 +7,7 @@ from torchmetrics import PrecisionRecallCurve, AUROC
 from typing import List
 
 
-def main(strength: float):
+def results_to_csv(strength: float):
     with open("data/visa.yaml", "r") as stream:
         parser = yaml.load(stream, Loader=yaml.CLoader)
         categorys = parser["categorys"]
@@ -73,4 +73,4 @@ def read_csv(csv_path:str, data_type: str):
 
 
 if __name__ == '__main__':
-    main(strength=0.1)
+    results_to_csv(strength=0.1)
