@@ -11,6 +11,7 @@ from ip_adapter import IPAdapter
 
 
 class Reconstructer:
+    DATASET = "mtd"
     STRENGTHS = [0.1, 0.2, 0.5, 0.7]
     IMAGE_SIZE = (512, 512)
 
@@ -20,7 +21,7 @@ class Reconstructer:
         self.sam_predictor, self.ip_model = self._load_models()
 
     def _read_data_setting(self):
-        with open("data/visa.yaml", "r") as stream:
+        with open(f"data/{self.DATASET}.yaml", "r") as stream:
             parser = yaml.load(stream, Loader=yaml.CLoader)
         return parser, parser["dataset"]["mask_enable"]
 

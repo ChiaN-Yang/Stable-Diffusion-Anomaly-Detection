@@ -1,0 +1,8 @@
+dataset:
+  path: /mnt/d/dataset/MTD/
+  image_size: 512
+  splite: test
+  mask_enable: False
+
+categorys:
+  - magnetictile

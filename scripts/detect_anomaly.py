@@ -10,6 +10,7 @@ from output_csv import results_to_csv
 
 
 class AnomalyDetector:
+    DATASET = "mtd"
     STRENGTH = 0.1
     THRESHOLDS = [77, 100, 127, 147, 177, 200]
     IMAGE_SIZE = (512, 512)
@@ -21,7 +22,7 @@ class AnomalyDetector:
         self.parser, self.enable_mask = self._read_data_setting()
 
     def _read_data_setting(self):
-        with open("data/visa.yaml", "r") as stream:
+        with open(f"data/{self.DATASET}.yaml", "r") as stream:
             parser = yaml.load(stream, Loader=yaml.CLoader)
         return parser, parser["dataset"]["mask_enable"]
     
