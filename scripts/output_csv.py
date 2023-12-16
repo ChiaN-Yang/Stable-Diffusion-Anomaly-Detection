@@ -85,4 +85,4 @@ class ResultsToCSV:
 
 if __name__ == '__main__':
     for strength in [0.1, 0.2, 0.5, 0.7]:
-        ResultsToCSV(result_path='/mnt/d/results/visa/visa_test_without_mask', strength=strength, dataset='visa', metric='f1')
+        ResultsToCSV(result_path='/mnt/d/results/', strength=strength, dataset='visa', metric='auroc')

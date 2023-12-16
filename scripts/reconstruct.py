@@ -11,17 +11,17 @@ from ip_adapter import IPAdapter
 
 
 class Reconstructer:
-    DATASET = "mtd"
     STRENGTHS = [0.1, 0.2, 0.5, 0.7]
     IMAGE_SIZE = (512, 512)
 
-    def __init__(self, save_path: str):
+    def __init__(self, save_path: str, dataset: str):
         self.save_path = Path(save_path)
+        self.dataset = dataset
         self.parser, self.enable_mask = self._read_data_setting()
         self.sam_predictor, self.ip_model = self._load_models()
 
     def _read_data_setting(self):
-        with open(f"data/{self.DATASET}.yaml", "r") as stream:
+        with open(f"data/{self.dataset}.yaml", "r") as stream:
             parser = yaml.load(stream, Loader=yaml.CLoader)
         return parser, parser["dataset"]["mask_enable"]
 
@@ -122,5 +122,5 @@ class Reconstructer:
 
 
 if __name__ == "__main__":
-    reconstructer = Reconstructer("/mnt/d/reconstruct")
+    reconstructer = Reconstructer("/mnt/d/reconstruct", "visa")
     reconstructer.run_all()

@@ -6,26 +6,31 @@ import numpy as np
 import yaml
 from skimage.metrics import structural_similarity
 from pathlib import Path
-from output_csv import results_to_csv
 
 
 class AnomalyDetector:
-    DATASET = "mtd"
     STRENGTH = 0.1
+    STRENGTHS = [0.1, 0.2, 0.5, 0.7]
     THRESHOLDS = [77, 100, 127, 147, 177, 200]
     IMAGE_SIZE = (512, 512)
     AREA_THRESH = 120
 
-    def __init__(self, reconstrcted_img_path: str, results_path: str):
-        self.reconstrcted_img_path = Path(reconstrcted_img_path)/f"strength_{self.STRENGTH}"
+    def __init__(self, reconstrcted_img_path: str, results_path: str, dataset: str):
+        self.reconstrcted_img_path = Path(reconstrcted_img_path)
         self.base_results_path = Path(results_path)
-        self.parser, self.enable_mask = self._read_data_setting()
+        self.parser, self.enable_mask = self._read_data_setting(dataset)
 
-    def _read_data_setting(self):
-        with open(f"data/{self.DATASET}.yaml", "r") as stream:
+    @staticmethod
+    def _read_data_setting(dataset):
+        with open(f"data/{dataset}.yaml", "r") as stream:
             parser = yaml.load(stream, Loader=yaml.CLoader)
         return parser, parser["dataset"]["mask_enable"]
-    
+
+    def run_all_strength(self):
+        for strength in self.STRENGTHS:
+            self.STRENGTH = strength
+            self.run_all_threshold()
+
     def run_all_threshold(self):
         for thresh in self.THRESHOLDS:
             self.lower_thresh = thresh
@@ -47,7 +52,7 @@ class AnomalyDetector:
             original_data_path = Path(self.parser["dataset"]["path"])
             for anomaly_type in os.listdir(original_data_path / category / self.parser["dataset"]["splite"]):
                 os.makedirs(category_path / anomaly_type)
-                folder_path = self.reconstrcted_img_path / category / anomaly_type
+                folder_path = self.reconstrcted_img_path / f"strength_{self.STRENGTH}" / category / anomaly_type
                 source_images = [x for x in folder_path.iterdir() if x.name.split('_')[0]=='source']
                 for img_file in source_images:
                     img_name = img_file.name.split('_')[1]
@@ -113,6 +118,5 @@ class AnomalyDetector:
 
 
 if __name__ == "__main__":
-    detector = AnomalyDetector(f"/mnt/d/reconstruct", f"/mnt/d/results/")
-    detector.run_all_threshold()
-    results_to_csv(strength=detector.STRENGTH)
+    detector = AnomalyDetector("/mnt/d/reconstruct", "/mnt/d/results/", "visa")
+    detector.run_all_strength()
