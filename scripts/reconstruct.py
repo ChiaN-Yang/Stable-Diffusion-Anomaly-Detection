@@ -3,11 +3,13 @@ import os
 import numpy as np
 import torch
 import yaml
+import cv2
 from PIL import Image
 from pathlib import Path
 from segment_anything import build_sam, SamAutomaticMaskGenerator
 from diffusers import StableDiffusionInpaintPipeline, DDIMScheduler, AutoencoderKL
 from ip_adapter import IPAdapter
+from skimage.metrics import structural_similarity
 
 
 class Reconstructer:
@@ -79,25 +81,19 @@ class Reconstructer:
 
             # Load reference image
             root_path = Path(self.parser["dataset"]["path"])
-            folder_path = root_path / category / self.parser["dataset"]["splite"]
-            file_names = [x for x in (folder_path/"good").iterdir() if x.is_file()]
-            ref_image_path = folder_path / file_names[0]
-            print(f'Reference image: {ref_image_path}')
+            ref_folder_path = root_path / category / self.parser["dataset"]["splite"]
 
-            for anomaly_type in os.listdir(folder_path):
+            for anomaly_type in os.listdir(ref_folder_path):
                 self.save_folder_path = self.save_path / f"strength_{self.strength}" / category / anomaly_type
                 os.makedirs(self.save_folder_path)
-                for img_path in (folder_path/anomaly_type).iterdir():
+                for img_path in (ref_folder_path/anomaly_type).iterdir():
                     print(img_path)
-                    self.reconstruct(img_path, ref_image_path)
+                    self.reconstruct(img_path, ref_folder_path)
 
-    def reconstruct(self, img_path: str, ref_image_path: str):
+    def reconstruct(self, img_path: str, ref_folder_path: str):
         # Load demo image
         image_source = Image.open(img_path).convert("RGB")
         image_source = np.asarray(image_source)
-        # Load reference image
-        ref_image = Image.open(ref_image_path)
-        ref_image.resize(self.IMAGE_SIZE)
 
         # Image Inpainting
         image_source_pil = Image.fromarray(image_source)
@@ -116,9 +112,45 @@ class Reconstructer:
         image_source_for_inpaint = image_source_pil.resize(self.IMAGE_SIZE)
         image_source_for_inpaint.save(self.save_folder_path / f"source_{img_path.name}")
 
-        image_inpainting = self.ip_model.generate(pil_image=ref_image, num_samples=1, num_inference_steps=50,
-            seed=42, image=image_source_for_inpaint, mask_image=image_mask_for_inpaint, strength=self.strength)[0]
-        image_inpainting.save(self.save_folder_path / f"inpaint_{img_path.name}")
+        thresh = float("inf")
+        file_names = [x for x in (ref_folder_path/"good").iterdir() if x.is_file()]
+        for i in range(4):
+            # Load reference image
+            ref_image_path = ref_folder_path / file_names[i]
+            ref_image = Image.open(ref_image_path)
+            ref_image.resize(self.IMAGE_SIZE)
+            print(f'Reference image: {ref_image_path}')
+            image_inpainting = self.ip_model.generate(pil_image=ref_image, num_samples=1, num_inference_steps=200,
+                seed=42, image=image_source_for_inpaint, mask_image=image_mask_for_inpaint, strength=self.strength)[0]
+            thresh_new = self.detect(image_source_for_inpaint, image_inpainting, image_mask_for_inpaint)
+            print('thresh', thresh_new)
+            if thresh_new < thresh:
+                thresh = thresh_new
+                image_inpainting.save(self.save_folder_path / f"inpaint_{img_path.name}")
+
+    def detect(self, origin_img, reconstruc_img, mask):
+        before = np.array(origin_img)
+        after = np.array(reconstruc_img)
+
+        # Convert images to grayscale
+        before_gray = cv2.cvtColor(before, cv2.COLOR_BGR2GRAY)
+        after_gray = cv2.cvtColor(after, cv2.COLOR_BGR2GRAY)
+
+        if self.enable_mask:
+            before_gray = cv2.bitwise_and(before_gray, before_gray, mask=mask)
+            after_gray = cv2.bitwise_and(after_gray, after_gray, mask=mask)
+
+        # Compute SSIM between the two images
+        (score, diff) = structural_similarity(
+                before_gray, after_gray, gaussian_weights=True, full=True)
+
+        # The diff image contains the actual image differences between the two images
+        # and is represented as a floating point data type in the range [0,1]
+        # so we must convert the array to 8-bit unsigned integers in the range
+        # [0,255] before we can use it with OpenCV
+        diff = (diff * 255).astype("uint8")
+        diff_inv = 255 - diff
+        return sum(diff_inv.flatten())
 
 
 if __name__ == "__main__":
