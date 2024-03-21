@@ -9,7 +9,6 @@ from transformers import CLIPSegProcessor, CLIPSegForImageSegmentation
 from pathlib import Path
 from segment_anything import build_sam, SamAutomaticMaskGenerator
 from diffusers import StableDiffusionInpaintPipeline, DDIMScheduler, AutoencoderKL
-from ip_adapter import IPAdapter
 from skimage.metrics import structural_similarity
 
 
@@ -58,7 +57,6 @@ class Reconstructer:
         )
         vae = AutoencoderKL.from_pretrained(vae_model_path).to(dtype=torch.float16)
 
-        # load SD pipeline
         pipe = StableDiffusionInpaintPipeline.from_pretrained(
             base_model_path,
             torch_dtype=torch.float16,
@@ -68,13 +66,7 @@ class Reconstructer:
             safety_checker=None
         )
         pipe = pipe.to("cuda")
-
-        # load ip-adapter
-        image_encoder_path = "models/image_encoder/"
-        ip_ckpt = "models/ip-adapter_sd15.bin"
-        device = "cuda"
-        ip_model = IPAdapter(pipe, image_encoder_path, ip_ckpt, device)
-        return seg_predictor, ip_model, processor
+        return seg_predictor, pipe, processor
     
     def run_all(self):
         for strength in self.STRENGTHS:
@@ -128,15 +120,12 @@ class Reconstructer:
         image_source_for_inpaint.save(self.save_folder_path / f"source_{img_path.name}")
 
         thresh = float("inf")
-        file_names = [x for x in (ref_folder_path/"good").iterdir() if x.is_file()]
         for i in range(1):
             # Load reference image
-            ref_image_path = ref_folder_path / file_names[i]
-            ref_image = Image.open(ref_image_path)
-            ref_image.resize(self.IMAGE_SIZE)
-            print(f'Reference image: {ref_image_path}')
-            image_inpainting = self.ip_model.generate(pil_image=ref_image, num_samples=1, num_inference_steps=200,
-                seed=42, image=image_source_for_inpaint, mask_image=image_mask_for_inpaint, strength=self.strength)[0]
+            prompt = str(ref_folder_path).split('/')[-2]
+            print(f'Reference image: {prompt}')
+            image_inpainting = self.ip_model(
+                    prompt=prompt, image=image_source_for_inpaint, mask_image=image_mask_for_inpaint, strength=self.strength).images[0]
             thresh_new = self.detect(image_source_for_inpaint, image_inpainting, image_mask_for_inpaint)
             print('thresh', thresh_new)
             if thresh_new < thresh:

@@ -3,6 +3,7 @@ dataset:
   image_size: 512
   splite: test
   mask_enable: False
+  mask_type: CLIPSeg
 
 categorys:
   - bottle
